@@ -1,8 +1,9 @@
 package main
 
 import (
-    "io"
+    "io/ioutil"
     "log"
+    "os"
 )
 
 var (
@@ -12,25 +13,21 @@ var (
     Error *log.Logger
 )
 
-func LogInit(
-    traceHandle io.Writer,
-    infoHandle io.Writer,
-    warningHandle io.Writer,
-    errorHandle io.Writer) {
-
-    Trace = log.New(traceHandle,
+// Called on load of source file
+func init() {
+    Trace = log.New(ioutil.Discard,
         "[TRACE] ",
         log.Ltime|log.Lshortfile)
 
-    Info = log.New(infoHandle,
+    Info = log.New(os.Stdout,
         "[INFO ] ",
         log.Ltime|log.Lshortfile)
 
-    Warn = log.New(warningHandle,
+    Warn = log.New(os.Stdout,
         "[WARN ] ",
         log.Ltime|log.Lshortfile)
 
-    Error = log.New(errorHandle,
+    Error = log.New(os.Stderr,
         "[ERROR] ",
         log.Ltime|log.Lshortfile)
 }
