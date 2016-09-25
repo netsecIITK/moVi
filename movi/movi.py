@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 "Contains initialization code"
 
+import sys
 from network.udpserver import UDPserver
 from network.udpclient import UDPclient
-import sys
 
 
 class MoVi:

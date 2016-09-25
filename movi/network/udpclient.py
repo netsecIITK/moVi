@@ -20,7 +20,7 @@ class UDPclient:
             print("Sent %d" % sent)
 
             # Receive response
-            data, server = self.socket.recvfrom(4096)
+            data, _ = self.socket.recvfrom(4096)
             print('received "%s"' % data)
 
         finally:
