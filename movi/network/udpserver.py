@@ -12,6 +12,17 @@ class UDPserver:
         self.socket.bind((host, port))
         print("Listening on %s:%d" % self.server_address)
 
+        self.target_address = ("0.0.0.0", 10000)
+
+    def get_hello(self):
+        "Wait for connection from client."
+        data, address = self.socket.recvfrom(4096)
+        self.target_address = address
+        print("Received hello from %s:%d" % address)
+        print("Hello message: %s" % data)
+        self.socket.sendto("Cool".encode(),
+                           self.target_address)
+
     def talk(self):
         "Listens for messages and responds."
         while True:
@@ -23,3 +34,7 @@ class UDPserver:
             if data:
                 sent = self.socket.sendto(data, address)
                 print('sent %s bytes back to %s' % (sent, address))
+
+    def send(self, data):
+        "Sends the provided data"
+        self.socket.sendto(data, self.target_address)

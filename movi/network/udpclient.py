@@ -26,3 +26,16 @@ class UDPclient:
         finally:
             print("Closing")
             self.socket.close()
+
+    def send_hello(self):
+        "Sends a hello to the server."
+        message = "Hello server!".encode()
+        self.socket.sendto(message, self.server_address)
+        data, _ = self.socket.recvfrom(4096)
+        print("Received %s" % data)
+
+    def recv(self):
+        "Receives a datagram from server"
+        data, newaddress = self.socket.recvfrom(4096)
+        self.server_address = newaddress
+        return data
