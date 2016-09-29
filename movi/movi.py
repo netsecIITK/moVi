@@ -33,12 +33,19 @@ class MoVi:
             ret = True
             while ret:
                 ret, frame = self.cam.getFrame()
+
                 if ret:
                     self.cam.showFrame(frame)
-                    # self.server.send(
-                    # self.pickler.get_pickles(frame))
+
+                    # Use this somehow, send this over network
+                    # See if client can receive them
+                    # Parse them on receiver side
+                    # Try display as an image
+                    # Will need a persistent numpy matrix on client side
+                    # which will be displayed
+                    self.pickler.get_pickles(frame)
                     self.server.send(
-                        self.pickler.get_pickles('abcde'))
+                        self.pickler.dummy('abcde'))
 
             self.cam.close()
         else:
