@@ -30,6 +30,6 @@ class Webcam:
 
         return (True, frame)
 
-    def showFrame(self, frame):
+    def showFrame(self, frame, name):
         # Display the resulting frame
-        cv2.imshow('server_frame', frame)
+        cv2.imshow(name, frame)
