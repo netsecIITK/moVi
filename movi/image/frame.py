@@ -17,4 +17,7 @@ class FrameDisplay:
     def showFrame(self, frame):
         # Display the resulting frame
         cv2.imshow(self.frame_name, frame)
-        cv2.waitKey(1)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            return False
+        else:
+            return True

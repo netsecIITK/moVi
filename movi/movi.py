@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
 "Contains initialization code"
 
-import cv2
 import numpy as np
 import sys
-import time
 from network.udpserver import UDPserver
 from network.udpclient import UDPclient
 from image.webcam import Webcam
-from image.pack import MoViPack
-from image.unpack import MoViUnpack
 from image.frame import FrameDisplay
+from image.encodings import JpegEncoding
 
 
 class MoVi:
@@ -25,13 +22,16 @@ class MoVi:
             print("Wrong mode")
             exit(1)
 
+        # Set this to whichever encoding you want to test
+        self.img_format = JpegEncoding(70)
+
         if mode == "SERVER":
             print("Running as server")
 
+            # Wait for an initial handshake with the client
             self.server.get_hello()
 
             self.cam = Webcam()
-            self.pickler = MoViPack()
             self.display = FrameDisplay('server_frame')
 
             ret = True
@@ -39,25 +39,22 @@ class MoVi:
                 ret, frame = self.cam.getFrame()
 
                 if ret:
-                    # self.display.showFrame(frame)
-                    self.cam.showFrame(frame, 'server_frame')
-                    print("Got a FRAME")
+                    ret = self.display.showFrame(frame)
                     for x in range(0, 450, 50):
                         for y in range(0, 600, 50):
                             frame_data = bytearray(
                                 bytes([(y//50)*10 + (x//50)]))
-                            frame_data.extend(cv2.imencode(
-                                '.jpg', frame[x:min(x+50, 450),
-                                              y:min(y+50, 600)],
-                                [cv2.IMWRITE_JPEG_QUALITY, 70])[1])
+                            frame_data.extend(self.img_format.encode(
+                                frame[x:min(x+50, 450), y:min(y+50, 600)]))
                             self.server.send(frame_data)
                             print("Sent frame ", x, " ", y)
                             print("Length ", len(frame_data))
 
             self.cam.close()
+            self.display.close()
+
         else:
             print("Running as client")
-            self.unpickler = MoViUnpack()
             self.display = FrameDisplay('client_frame')
 
             self.client.send_hello()
@@ -66,24 +63,21 @@ class MoVi:
 
             ret = True
             while ret:
-                # for x in range(0, 450, 50):
-                #     for y in range(0, 600, 50):
                 data = self.client.recv()
                 index = int.from_bytes([data[0]], 'little')
-                print(index)
                 x = (index % 10)*50
                 y = ((index)//10)*50
                 print(x, " ", y)
 
                 frame_data = np.fromstring(data[1:], np.uint8)
-                print("Got frame")
-                print("Length ", len(data))
+                print("Got frame of length ", len(data))
                 matrix_img[x:min(x+50, 450),
-                           y:min(y+50, 600)] = cv2.imdecode(
-                               frame_data, cv2.IMREAD_COLOR)
+                           y:min(y+50, 600)] = (self.
+                                                img_format.decode(frame_data))
 
-                cv2.imshow('client_frame', matrix_img)
-                cv2.waitKey(1)
+                ret = self.display.showFrame(matrix_img)
+
+            self.display.close()
 
 
 # Begin execution
