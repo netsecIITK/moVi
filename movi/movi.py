@@ -2,6 +2,7 @@
 "Contains initialization code"
 
 import numpy as np
+import struct
 import sys
 from network.udpserver import UDPserver
 from network.udpclient import UDPclient
@@ -12,6 +13,18 @@ from image.encodings import JpegEncoding
 
 class MoVi:
     "Begin of moVi"
+
+    def integer_bytes_encode(self, ints):
+        b = bytearray()
+        for i in ints:
+            # < is for little endian
+            # H is for unsigned short (16 bits)
+            b += struct.pack("<H", i)
+        return b
+
+    def integer_bytes_decode(self, byte_array):
+        repr(byte_array)
+        return struct.unpack("<H", byte_array)[0]
 
     def __init__(self, mode, port, host):
         if mode == "SERVER":
@@ -42,8 +55,7 @@ class MoVi:
                     ret = self.display.showFrame(frame)
                     for x in range(0, 450, 50):
                         for y in range(0, 600, 50):
-                            frame_data = bytearray(
-                                bytes([(y//50)*10 + (x//50)]))
+                            frame_data = self.integer_bytes_encode([x, y])
                             frame_data.extend(self.img_format.encode(
                                 frame[x:min(x+50, 450), y:min(y+50, 600)]))
                             self.server.send(frame_data)
@@ -64,12 +76,11 @@ class MoVi:
             ret = True
             while ret:
                 data = self.client.recv()
-                index = int.from_bytes([data[0]], 'little')
-                x = (index % 10)*50
-                y = ((index)//10)*50
+                x = self.integer_bytes_decode(data[0:2])
+                y = self.integer_bytes_decode(data[2:4])
                 print(x, " ", y)
 
-                frame_data = np.fromstring(data[1:], np.uint8)
+                frame_data = np.fromstring(data[4:], np.uint8)
                 print("Got frame of length ", len(data))
                 matrix_img[x:min(x+50, 450),
                            y:min(y+50, 600)] = (self.
