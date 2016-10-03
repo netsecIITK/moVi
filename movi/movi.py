@@ -12,6 +12,7 @@ from image.encodings import JpegEncoding
 from image.logging import Logging
 from network.udpserver import UDPserver
 from network.udpclient import UDPclient
+from network.packetType import PacketType
 
 
 class MoVi:
@@ -47,6 +48,9 @@ class MoVi:
 
         self.logging = Logging()
 
+        self.regionSize = 100
+
+
         if mode == "SERVER":
             print("Running as server")
 
@@ -62,11 +66,11 @@ class MoVi:
 
                 if ret:
                     ret = self.display.showFrame(frame)
-                    for x in range(0, 450, 50):
-                        for y in range(0, 600, 50):
+                    for x in range(0, 450, self.regionSize):
+                        for y in range(0, 600, self.regionSize):
                             frame_data = self.img_format.encode(
-                                frame[x:min(x+50, 450),
-                                      y:min(y+50, 600)])
+                                frame[x:min(x + self.regionSize, 450),
+                                      y:min(y + self.regionSize, 600)])
                             packet_data = packetFormat.pack(
                                 x, y, signing.sign(frame_data), frame_data)
 
@@ -94,8 +98,8 @@ class MoVi:
                 if signing.check_sign(sign, frame_data):
                     self.logging.log((x, " ", y))
                     self.logging.log(("Got frame of length ", len(data)))
-                    matrix_img[x:min(x+50, 450),
-                               y:min(y+50, 600)] = (self.img_format.
+                    matrix_img[x:min(x + self.regionSize, 450),
+                               y:min(y + self.regionSize, 600)] = (self.img_format.
                                                     decode(frame_data))
                     ret = self.display.showFrame(matrix_img)
 
