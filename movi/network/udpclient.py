@@ -35,7 +35,9 @@ class UDPclient:
         print("Received %s" % data)
 
     def recv(self):
-        "Receives a datagram from server"
-        data, newaddress = self.socket.recvfrom(4096)
-        self.server_address = newaddress
-        return data
+        "Receives a datagram (can be valid or invalid)."
+        return self.socket.recvfrom(4096)
+
+    def update(self, new_addr):
+        "Update the server_address on receiving a valid packet."
+        self.server_address = new_addr

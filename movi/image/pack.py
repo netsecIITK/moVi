@@ -1,13 +1,13 @@
 """
-Takes a frame, and returns the pickles of
-the updated regions in the frame
+Takes a frame, its location, and more info.
+Puts that into a bytestream.
 """
 
 import pickle
 
 
 class MoViPack:
-    "Handles the logic of packing and region division"
+    "Handles the logic of assembling information into packets"
 
     def __init__(self):
         print("Pickler")

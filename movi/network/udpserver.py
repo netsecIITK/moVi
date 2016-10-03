@@ -36,5 +36,12 @@ class UDPserver:
                 print('sent %s bytes back to %s' % (sent, address))
 
     def send(self, data):
-        "Sends the provided data"
+        "Sends the provided data to target_address."
         self.socket.sendto(data, self.target_address)
+
+    def update(self, new_addr):
+        """
+        To update the target address on receiving
+        a valid packet from some other address.
+        """
+        self.target_address = new_addr

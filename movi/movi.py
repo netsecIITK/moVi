@@ -4,11 +4,13 @@
 import numpy as np
 import struct
 import sys
-from network.udpserver import UDPserver
-from network.udpclient import UDPclient
+from crypto.aes import Aes
+from image.format import PacketFormat
 from image.webcam import Webcam
 from image.frame import FrameDisplay
 from image.encodings import JpegEncoding
+from network.udpserver import UDPserver
+from network.udpclient import UDPclient
 
 
 class MoVi:
@@ -38,6 +40,10 @@ class MoVi:
         # Set this to whichever encoding you want to test
         self.img_format = JpegEncoding(70)
 
+        key = "abcd"
+        packetFormat = PacketFormat()
+        signing = Aes(key)
+
         if mode == "SERVER":
             print("Running as server")
 
@@ -55,12 +61,15 @@ class MoVi:
                     ret = self.display.showFrame(frame)
                     for x in range(0, 450, 50):
                         for y in range(0, 600, 50):
-                            frame_data = self.integer_bytes_encode([x, y])
-                            frame_data.extend(self.img_format.encode(
-                                frame[x:min(x+50, 450), y:min(y+50, 600)]))
-                            self.server.send(frame_data)
+                            frame_data = self.img_format.encode(
+                                frame[x:min(x+50, 450),
+                                      y:min(y+50, 600)])
+                            packet_data = packetFormat.pack(
+                                x, y, signing.sign(frame_data), frame_data)
+
+                            self.server.send(packet_data)
                             print("Sent frame ", x, " ", y)
-                            print("Length ", len(frame_data))
+                            print("Length ", len(packet_data))
 
             self.cam.close()
             self.display.close()
@@ -75,18 +84,20 @@ class MoVi:
 
             ret = True
             while ret:
-                data = self.client.recv()
-                x = self.integer_bytes_decode(data[0:2])
-                y = self.integer_bytes_decode(data[2:4])
-                print(x, " ", y)
+                data, new_addr = self.client.recv()
+                x, y, sign, frame_data = packetFormat.unpack(data)
 
-                frame_data = np.fromstring(data[4:], np.uint8)
-                print("Got frame of length ", len(data))
-                matrix_img[x:min(x+50, 450),
-                           y:min(y+50, 600)] = (self.
-                                                img_format.decode(frame_data))
+                # Check validity of packet
+                if signing.check_sign(sign, frame_data):
+                    print(x, " ", y)
+                    print("Got frame of length ", len(data))
+                    matrix_img[x:min(x+50, 450),
+                               y:min(y+50, 600)] = (self.img_format.
+                                                    decode(frame_data))
+                    ret = self.display.showFrame(matrix_img)
 
-                ret = self.display.showFrame(matrix_img)
+                    # Update the latest address
+                    self.client.update(new_addr)
 
             self.display.close()
 
