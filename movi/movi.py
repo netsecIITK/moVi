@@ -9,6 +9,7 @@ from image.format import PacketFormat
 from image.webcam import Webcam
 from image.frame import FrameDisplay
 from image.encodings import JpegEncoding
+from image.logging import Logging
 from network.udpserver import UDPserver
 from network.udpclient import UDPclient
 
@@ -44,6 +45,8 @@ class MoVi:
         packetFormat = PacketFormat()
         signing = Aes(key)
 
+        self.logging = Logging()
+
         if mode == "SERVER":
             print("Running as server")
 
@@ -68,8 +71,8 @@ class MoVi:
                                 x, y, signing.sign(frame_data), frame_data)
 
                             self.server.send(packet_data)
-                            print("Sent frame ", x, " ", y)
-                            print("Length ", len(packet_data))
+                            self.logging.log(("Sent frame ", x, " ", y))
+                            self.logging.log(("Length ", len(packet_data)))
 
             self.cam.close()
             self.display.close()
@@ -89,8 +92,8 @@ class MoVi:
 
                 # Check validity of packet
                 if signing.check_sign(sign, frame_data):
-                    print(x, " ", y)
-                    print("Got frame of length ", len(data))
+                    self.logging.log((x, " ", y))
+                    self.logging.log(("Got frame of length ", len(data)))
                     matrix_img[x:min(x+50, 450),
                                y:min(y+50, 600)] = (self.img_format.
                                                     decode(frame_data))
