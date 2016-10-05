@@ -36,8 +36,11 @@ class UDPclient:
 
     def recv(self):
         "Receives a datagram (can be valid or invalid)."
+        # TODO Shift to recvfrom_into
+        # Into: To use a common buffer, avoid making extra bytestrings
         return self.socket.recvfrom(4096)
 
     def update(self, new_addr):
         "Update the server_address on receiving a valid packet."
+        # TODO Remove after above is modified
         self.server_address = new_addr

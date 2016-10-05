@@ -50,7 +50,6 @@ class MoVi:
 
         self.regionSize = 100
 
-
         if mode == "SERVER":
             print("Running as server")
 
@@ -99,11 +98,12 @@ class MoVi:
                     self.logging.log((x, " ", y))
                     self.logging.log(("Got frame of length ", len(data)))
                     matrix_img[x:min(x + self.regionSize, 450),
-                               y:min(y + self.regionSize, 600)] = (self.img_format.
-                                                    decode(frame_data))
+                               y:min(y + self.regionSize, 600)] = (
+                                   self.img_format.decode(frame_data))
                     ret = self.display.showFrame(matrix_img)
 
                     # Update the latest address
+                    # Should be handled inside recv
                     self.client.update(new_addr)
 
             self.display.close()
