@@ -11,9 +11,9 @@ from image.webcam import Webcam
 from image.frame import FrameDisplay
 from image.encodings import JpegEncoding
 from image.logging import Logging
-from network.udpserver import UDPserver
 from network.udpclient import UDPclient
-from network.packetType import PacketType
+from network.tcpserver import TCPserver
+from network.tcpclient import TCPclient
 
 
 class MoVi:
@@ -42,26 +42,53 @@ class MoVi:
         self.logging = Logging()
         self.regionSize = 100
 
-        key = "abcd"
-        self.signing = Aes(key)
-
         if mode == "SERVER":
             print("Running as server")
-            self.server = UDPserver(port, host)
-            self.server_mode()
+            tcpserver = TCPserver(port, host)
+            for connection in tcpserver.connection_information(2000):
+                # For every connection to tcpserver
+                print("Got connection from: {}:{}"
+                      .format(connection[0], connection[1][1]))
+
+                signing = Aes(connection[1][0])
+
+                udp_port = connection[1][1]
+                udp_host = connection[0]
+
+                # Bind to a socket
+                server = UDPclient(2000)
+
+                # It has to talk to the negotiated port
+                server.update((udp_host, udp_port))
+
+                # Begin sending data
+                self.server_mode(server, signing)
+
+            # Finally close TCP
+            tcpserver.close()
+
         else:
             print("Running as client")
-            self.client = UDPclient(port, host)
-            self.client_mode()
+            # Talk to target TCP process
+            tcpclient = TCPclient(port, host)
 
-    def server_mode(self):
+            # Get the secret key and udp_port for video from TCP
+            key, udp_port = tcpclient.get_information(3000)
+            tcpclient.close()
+
+            # Bind to a UDP port to talk
+            client = UDPclient(3000)
+            client.update((host, udp_port))
+            signing = Aes(key)
+
+            # Begin receiving
+            self.client_mode(client, signing)
+
+    def server_mode(self, server, signing):
         """Handles the logic of the passive connection side.
         Server may not be the only side sending, but it is used to
         establish the initial UDP packet by listening
         """
-
-        # Wait for an initial handshake with the client
-        self.server.get_hello()
 
         self.cam = Webcam()
         self.display = FrameDisplay('server_frame')
@@ -69,7 +96,6 @@ class MoVi:
         ret = True
         while ret:
             ret, frame = self.cam.getFrame()
-
             if ret:
                 ret = self.display.showFrame(frame)
                 for x in range(0, 450, self.regionSize):
@@ -78,32 +104,30 @@ class MoVi:
                             frame[x:min(x + self.regionSize, 450),
                                   y:min(y + self.regionSize, 600)])
                         packet_data = self.packetFormat.pack(
-                            x, y, self.signing.sign(frame_data), frame_data)
+                            x, y, signing.sign(frame_data), frame_data)
 
-                        self.server.send(packet_data)
+                        server.send(packet_data)
                         self.logging.log(("Sent frame ", x, " ", y))
                         self.logging.log(("Length ", len(packet_data)))
 
         self.cam.close()
         self.display.close()
 
-    def client_mode(self):
+    def client_mode(self, client, signing):
         """Handles the logic of the (inital) active side of UDP.
         Sends the initial hello over UDP.
         """
         self.display = FrameDisplay('client_frame')
 
-        self.client.send_hello()
-
         matrix_img = np.zeros((480, 640, 3), dtype=np.uint8)
 
         ret = True
         while ret:
-            data, new_addr = self.client.recv()
+            data, new_addr = client.recv()
             x, y, sign, frame_data = self.packetFormat.unpack(data)
 
             # Check validity of packet
-            if self.signing.check_sign(sign, frame_data):
+            if signing.check_sign(sign, frame_data):
                 self.logging.log((x, " ", y))
                 self.logging.log(("Got frame of length ", len(data)))
                 matrix_img[x:min(x + self.regionSize, 450),
@@ -113,13 +137,9 @@ class MoVi:
 
                 # Update the latest address
                 # Should be handled inside recv
-                self.client.update(new_addr)
+                client.update(new_addr)
 
         self.display.close()
-
-
-
-
 
 # Begin execution
 if len(sys.argv) < 4:
