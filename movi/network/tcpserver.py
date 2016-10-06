@@ -52,5 +52,5 @@ class TCPserver:
 
     def close(self):
         print("Closing TCP socket on address {}:{}"
-              .format(self.server_address))
+              .format(*self.server_address))
         self.socket.close()
