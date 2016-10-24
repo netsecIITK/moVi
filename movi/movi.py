@@ -57,13 +57,14 @@ class MoVi:
                 udp_host = connection[0]
 
                 # Bind to a socket
-                self.server = UDPclient(2000)
+                self.network_client = UDPclient(2000)
 
                 # It has to talk to the negotiated port
-                self.server.update((udp_host, udp_port))
+                self.network_client.update((udp_host, udp_port))
 
                 # Begin sending data
-                self.server_mode()
+                self.sender_single()
+                # self.runner("SERVER")
 
             # Finally close TCP
             tcpserver.close()
@@ -78,46 +79,39 @@ class MoVi:
             tcpclient.close()
 
             # Bind to a UDP port to talk
-            self.client = UDPclient(3000)
-            self.client.update((host, udp_port))
+            self.network_client = UDPclient(3000)
+            self.network_client.update((host, udp_port))
             self.signing = Aes(key)
 
             # Begin receiving
-            self.client_mode()
+            self.receiver_single()
+            # self.runner("CLIENT")
+
+    def runner(self, frame_name):
+        self.frame_name = frame_name
+        t1 = threading.Thread(target=self.send_state)
+        t2 = threading.Thread(target=self.recv_state)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+    def sender_single(self):
+        self.frame_name = "SENDER"
+        self.send_state()
+
+    def receiver_single(self):
+        self.frame_name = "RECEIVER"
+        self.recv_state()
 
     def send_state(self):
         ret = True
-        while ret:
-            ret, frame = self.cam.getFrame()
-            if ret:
-                ret = self.display.showFrame(frame)
-                for x in range(0, 450, self.regionSize):
-                    for y in range(0, 600, self.regionSize):
-                        frame_data = self.img_format.encode(
-                            frame[x:min(x + self.regionSize, 450),
-                                  y:min(y + self.regionSize, 600)])
-                        packet_data = self.packetFormat.pack(
-                            x, y, self.signing.sign(frame_data), frame_data)
-
-                        self.server.send(packet_data)
-                        self.logging.log(("Sent frame ", x, " ", y))
-                        self.logging.log(("Length ", len(packet_data)))
-
-    def server_mode(self):
-        """
-        Handles the logic of the passive connection side.
-        Server may not be the only side sending, but it is used to
-        establish the initial UDP packet by listening
-        """
-
+        display = FrameDisplay('{}: Sending frame'.format(self.frame_name))
         self.cam = Webcam()
-        self.display = FrameDisplay('server_frame')
-
-        ret = True
         while ret:
             ret, frame = self.cam.getFrame()
             if ret:
-                ret = self.display.showFrame(frame)
+                ret = display.showFrame(frame)
                 for x in range(0, 450, self.regionSize):
                     for y in range(0, 600, self.regionSize):
                         frame_data = self.img_format.encode(
@@ -126,25 +120,16 @@ class MoVi:
                         packet_data = self.packetFormat.pack(
                             x, y, self.signing.sign(frame_data), frame_data)
 
-                        self.server.send(packet_data)
+                        self.network_client.send(packet_data)
                         self.logging.log(("Sent frame ", x, " ", y))
                         self.logging.log(("Length ", len(packet_data)))
 
-        self.cam.close()
-        self.display.close()
-
-    def client_mode(self):
-        """
-        Handles the logic of the (inital) active side of UDP.
-        Sends the initial hello over UDP.
-        """
-        self.display = FrameDisplay('client_frame')
-
+    def recv_state(self):
         matrix_img = np.zeros((480, 640, 3), dtype=np.uint8)
-
+        display = FrameDisplay('{}: Receiving frame'.format(self.frame_name))
         ret = True
         while ret:
-            data, new_addr = self.client.recv()
+            data, new_addr = self.network_client.recv()
             x, y, sign, frame_data = self.packetFormat.unpack(data)
 
             # Check validity of packet
@@ -154,13 +139,11 @@ class MoVi:
                 matrix_img[x:min(x + self.regionSize, 450),
                            y:min(y + self.regionSize, 600)] = (
                                self.img_format.decode(frame_data))
-                ret = self.display.showFrame(matrix_img)
+                ret = display.showFrame(matrix_img)
 
                 # Update the latest address
                 # Should be handled inside recv
-                self.client.update(new_addr)
-
-        self.display.close()
+                self.network_client.update(new_addr)
 
 # Begin execution
 if len(sys.argv) < 4:
