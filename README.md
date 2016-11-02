@@ -1,21 +1,10 @@
 moVi
 ===============================
 
-Mobile Video Protocol
---------------------
-
+## Mobile Video Protocol
 
 * Apache License
-* Documentation: https://movi.readthedocs.io.
+* Current status: Blog post at [acehack.org](http://www.acehack.org/posts/2016-10-08-movi.html)
 
-
-Features
---------
-
-* TODO
-
-Credits
----------
-
+## Credits
 This package was created with [Cookiecutter_](https://github.com/audreyr/cookiecutter)
-
