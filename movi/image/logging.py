@@ -4,6 +4,7 @@ Log the events into the log directory as a different thread
 
 from multiprocessing import Pool
 
+
 class Logging:
 
     def __init__(self):

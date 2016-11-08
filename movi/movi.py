@@ -46,7 +46,7 @@ class MoVi:
         if mode == "SERVER":
             print("Running as server")
             tcpserver = TCPserver(port, host)
-            for connection in tcpserver.connection_information(2000):
+            for connection in tcpserver.connection_information(3000):
                 # For every connection to tcpserver
                 print("Got connection from: {}:{}"
                       .format(connection[0], connection[1][1]))
@@ -57,14 +57,14 @@ class MoVi:
                 udp_host = connection[0]
 
                 # Bind to a socket
-                self.network_client = UDPclient(2000)
+                self.network_client = UDPclient(3000)
 
                 # It has to talk to the negotiated port
                 self.network_client.update((udp_host, udp_port))
 
                 # Begin sending data
-                self.sender_single()
-                # self.runner("SERVER")
+                # self.sender_single()
+                self.runner("SERVER")
 
             # Finally close TCP
             tcpserver.close()
@@ -84,8 +84,8 @@ class MoVi:
             self.signing = Aes(key)
 
             # Begin receiving
-            self.receiver_single()
-            # self.runner("CLIENT")
+            # self.receiver_single()
+            self.runner("CLIENT")
 
     def runner(self, frame_name):
         self.frame_name = frame_name
@@ -121,8 +121,8 @@ class MoVi:
                             x, y, self.signing.sign(frame_data), frame_data)
 
                         self.network_client.send(packet_data)
-                        self.logging.log(("Sent frame ", x, " ", y))
-                        self.logging.log(("Length ", len(packet_data)))
+                        self.logging.log(("Sent frame ", x, " ", y,
+                                          "of length", len(packet_data)))
 
     def recv_state(self):
         matrix_img = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -134,8 +134,8 @@ class MoVi:
 
             # Check validity of packet
             if self.signing.check_sign(sign, frame_data):
-                self.logging.log((x, " ", y))
-                self.logging.log(("Got frame of length ", len(data)))
+                self.logging.log((x, " ", y,
+                                  "Got frame of length ", len(data)))
                 matrix_img[x:min(x + self.regionSize, 450),
                            y:min(y + self.regionSize, 600)] = (
                                self.img_format.decode(frame_data))
