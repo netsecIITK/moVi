@@ -6,6 +6,7 @@ import struct
 import sys
 import threading
 
+from multiprocessing import Process
 from crypto.aes import Aes
 from image.format import PacketFormat
 from image.webcam import Webcam
@@ -75,11 +76,11 @@ class MoVi:
             tcpclient = TCPclient(port, host)
 
             # Get the secret key and udp_port for video from TCP
-            key, udp_port = tcpclient.get_information(3000)
+            key, udp_port = tcpclient.get_information(2000)
             tcpclient.close()
 
             # Bind to a UDP port to talk
-            self.network_client = UDPclient(3000)
+            self.network_client = UDPclient(2000)
             self.network_client.update((host, udp_port))
             self.signing = Aes(key)
 
@@ -89,8 +90,10 @@ class MoVi:
 
     def runner(self, frame_name):
         self.frame_name = frame_name
-        t1 = threading.Thread(target=self.send_state)
-        t2 = threading.Thread(target=self.recv_state)
+        # t1 = threading.Thread(target=self.send_state)
+        # t2 = threading.Thread(target=self.recv_state)
+        t1 = Process(target=self.send_state)
+        t2 = Process(target=self.recv_state)
         t1.start()
         t2.start()
         t1.join()
@@ -107,6 +110,8 @@ class MoVi:
     def send_state(self):
         ret = True
         display = FrameDisplay('{}: Sending frame'.format(self.frame_name))
+        # if self.frame_name == "CLIENT":
+        #     return 0
         self.cam = Webcam()
         while ret:
             ret, frame = self.cam.getFrame()
@@ -139,6 +144,7 @@ class MoVi:
                 matrix_img[x:min(x + self.regionSize, 450),
                            y:min(y + self.regionSize, 600)] = (
                                self.img_format.decode(frame_data))
+                
                 ret = display.showFrame(matrix_img)
 
                 # Update the latest address
