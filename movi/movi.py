@@ -84,6 +84,9 @@ class MoVi:
             # Bind to a UDP port to talk
             self.network_client = UDPclient(2000)
             self.network_client.update((host, udp_port))
+
+            self.network_ack_client = UDPclient(4001)
+            self.network_ack_client.update((host, 4000))
             self.signing = Aes(key)
 
             # Begin receiving
@@ -117,13 +120,13 @@ class MoVi:
         ret = True
         display = FrameDisplay('{}: Sending frame'.format(self.frame_name))
         self.cam = Webcam()
-        self.currentSeqNo = []*self.xy_mapping(450,600)
-        self.lastAck = []*self.xy_mapping(450,600)
-        self.queue = [queue.Queue() for i in range(0,self.xy_mapping(450,600))]
+        self.currentSeqNo = [1]*(self.xy_mapping(450,600) + 1)
+        self.lastAck = [1]*(self.xy_mapping(450,600) + 1)
+        self.queue = [queue.Queue() for i in range(0,1 + self.xy_mapping(450,600))]
         self.last = [np.zeros((self.regionSize, self.regionSize, 3), dtype=np.uint8) 
-                for i in range(0,self.xy_mapping(450,600))]
+                for i in range(0,1+self.xy_mapping(450,600))]
 
-        t1 = threading.Thread(target=self.counter)
+        t1 = threading.Thread(target=self.recv_ack)
 
         for x in range(0, 450, self.regionSize):
             for y in range(0, 600, self.regionSize):
@@ -132,17 +135,22 @@ class MoVi:
 
         t1.start()
 
+        fn = 0
+        fs = 0
         while ret:
             ret, frame = self.cam.getFrame()
-            print(self.count)
             if ret:
                 ret = display.showFrame(frame)
                 for x in range(0, 450, self.regionSize):
                     for y in range(0, 600, self.regionSize):
+                        
+                        while self.queue[self.xy_mapping(x,y)].qsize() > 100:
+                            self.queue[self.xy_mapping(x,y)].get()
+
                         if(np.sum(np.absolute(self.last[self.xy_mapping(x,y)]-frame[x:min(x + 
                             self.regionSize, 450), y:min(y + self.regionSize, 600)])) > 
-                                self.regionSize*self.regionSize*3)
-                        1
+                                self.regionSize*self.regionSize*320):
+
                             self.currentSeqNo[self.xy_mapping(x,y)]+=1
                             
                             self.queue[self.xy_mapping(x,y)].put(frame[x:min(x + self.regionSize, 
@@ -156,22 +164,30 @@ class MoVi:
                                 self.signing.sign(frame_data), frame_data)
 
                             self.network_client.send(packet_data)
-                            self.logging.log(("Sent frame ", x, " ", y,
-                                              "of length", len(packet_data)))
+                            fs += 1
+                            # self.logging.log(("Sent frame ", x, " ", y,
+                            #                   "of length", len(packet_data), self.currentSeqNo[self.xy_mapping(x,y)]))
+                        else:
+                            fn += 1
+                            self.logging.log(("Frame not sent ",fn, fs))
 
     def recv_ack(self):
         self.network_client_ack = UDPclient(4000)
-        self.network_client_ack.update((self.udp_host, 4001))
         ret = True
         while 1:
             data, new_addr = self.network_client_ack.recv()
-            x, y, sign, ack = self.packetFormat.unpack(data)
+            x, y, ack, sign= self.packetFormat.unpack_ack(data)
 
-            for i in range(0,ack - self.lastAck[self.xy_mapping(x,y)]):
+            # self.logging.log("Received ack")
+            if(ack <= self.lastAck[self.xy_mapping(x,y)]):
+                continue
+
+            for i in range(0,min(ack - self.lastAck[self.xy_mapping(x,y)], 
+                self.queue[self.xy_mapping(x,y)].qsize())):
                 self.queue[self.xy_mapping(x,y)].get()
 
-            self.last[self.xy_mapping(x,y)] = get()
-            self.lastAck = ack
+            self.last[self.xy_mapping(x,y)] = self.queue[self.xy_mapping(x,y)].get()
+            self.lastAck[self.xy_mapping(x,y)] = ack
 
     def recv_state(self):
         matrix_img = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -179,7 +195,7 @@ class MoVi:
         ret = True
         while ret:
             data, new_addr = self.network_client.recv()
-            x, y, sign, frame_data = self.packetFormat.unpack(data)
+            x, y, ack, sign, frame_data = self.packetFormat.unpack(data)
 
             # Check validity of packet
             if self.signing.check_sign(sign, frame_data):
@@ -190,7 +206,10 @@ class MoVi:
                                self.img_format.decode(frame_data))
                 
                 ret = display.showFrame(matrix_img)
+                packet_data = self.packetFormat.pack_ack(
+                                x, y, ack, sign)
 
+                self.network_ack_client.send(packet_data)
                 # Update the latest address
                 # Should be handled inside recv
                 self.network_client.update(new_addr)
