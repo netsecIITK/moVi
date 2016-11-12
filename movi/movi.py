@@ -5,6 +5,7 @@ import numpy as np
 import struct
 import sys
 import threading
+import queue
 
 from multiprocessing import Process
 from crypto.aes import Aes
@@ -55,17 +56,17 @@ class MoVi:
                 self.signing = Aes(connection[1][0])
 
                 udp_port = connection[1][1]
-                udp_host = connection[0]
+                self.udp_host = connection[0]
 
                 # Bind to a socket
                 self.network_client = UDPclient(3000)
 
                 # It has to talk to the negotiated port
-                self.network_client.update((udp_host, udp_port))
+                self.network_client.update((self.udp_host, udp_port))
 
                 # Begin sending data
-                # self.sender_single()
-                self.runner("SERVER")
+                self.sender_single()
+                # self.runner("SERVER")
 
             # Finally close TCP
             tcpserver.close()
@@ -74,6 +75,7 @@ class MoVi:
             print("Running as client")
             # Talk to target TCP process
             tcpclient = TCPclient(port, host)
+            self.udp_host = host
 
             # Get the secret key and udp_port for video from TCP
             key, udp_port = tcpclient.get_information(2000)
@@ -85,8 +87,8 @@ class MoVi:
             self.signing = Aes(key)
 
             # Begin receiving
-            # self.receiver_single()
-            self.runner("CLIENT")
+            self.receiver_single()
+            # self.runner("CLIENT")
 
     def runner(self, frame_name):
         self.frame_name = frame_name
@@ -107,27 +109,69 @@ class MoVi:
         self.frame_name = "RECEIVER"
         self.recv_state()
 
+    def xy_mapping(self,x,y):
+        max_x = 450//self.regionSize + 1
+        return (y//self.regionSize)*max_x + (x//self.regionSize)
+
     def send_state(self):
         ret = True
         display = FrameDisplay('{}: Sending frame'.format(self.frame_name))
-        # if self.frame_name == "CLIENT":
-        #     return 0
         self.cam = Webcam()
+        self.currentSeqNo = []*self.xy_mapping(450,600)
+        self.lastAck = []*self.xy_mapping(450,600)
+        self.queue = [queue.Queue() for i in range(0,self.xy_mapping(450,600))]
+        self.last = [np.zeros((self.regionSize, self.regionSize, 3), dtype=np.uint8) 
+                for i in range(0,self.xy_mapping(450,600))]
+
+        t1 = threading.Thread(target=self.counter)
+
+        for x in range(0, 450, self.regionSize):
+            for y in range(0, 600, self.regionSize):
+                self.currentSeqNo[self.xy_mapping(x,y)] = 0
+                self.lastAck[self.xy_mapping(x,y)] = 0
+
+        t1.start()
+
         while ret:
             ret, frame = self.cam.getFrame()
+            print(self.count)
             if ret:
                 ret = display.showFrame(frame)
                 for x in range(0, 450, self.regionSize):
                     for y in range(0, 600, self.regionSize):
-                        frame_data = self.img_format.encode(
-                            frame[x:min(x + self.regionSize, 450),
-                                  y:min(y + self.regionSize, 600)])
-                        packet_data = self.packetFormat.pack(
-                            x, y, self.signing.sign(frame_data), frame_data)
+                        if(np.sum(np.absolute(self.last[self.xy_mapping(x,y)]-frame[x:min(x + 
+                            self.regionSize, 450), y:min(y + self.regionSize, 600)])) > 
+                                self.regionSize*self.regionSize*3)
+                        1
+                            self.currentSeqNo[self.xy_mapping(x,y)]+=1
+                            
+                            self.queue[self.xy_mapping(x,y)].put(frame[x:min(x + self.regionSize, 
+                                450), y:min(y + self.regionSize, 600)])
+                            frame_data = self.img_format.encode(
+                                frame[x:min(x + self.regionSize, 450),
+                                      y:min(y + self.regionSize, 600)])
+                            
+                            packet_data = self.packetFormat.pack(
+                                x, y, self.currentSeqNo[self.xy_mapping(x,y)],
+                                self.signing.sign(frame_data), frame_data)
 
-                        self.network_client.send(packet_data)
-                        self.logging.log(("Sent frame ", x, " ", y,
-                                          "of length", len(packet_data)))
+                            self.network_client.send(packet_data)
+                            self.logging.log(("Sent frame ", x, " ", y,
+                                              "of length", len(packet_data)))
+
+    def recv_ack(self):
+        self.network_client_ack = UDPclient(4000)
+        self.network_client_ack.update((self.udp_host, 4001))
+        ret = True
+        while 1:
+            data, new_addr = self.network_client_ack.recv()
+            x, y, sign, ack = self.packetFormat.unpack(data)
+
+            for i in range(0,ack - self.lastAck[self.xy_mapping(x,y)]):
+                self.queue[self.xy_mapping(x,y)].get()
+
+            self.last[self.xy_mapping(x,y)] = get()
+            self.lastAck = ack
 
     def recv_state(self):
         matrix_img = np.zeros((480, 640, 3), dtype=np.uint8)
