@@ -6,6 +6,7 @@ import struct
 import sys
 import threading
 import queue
+import cv2
 
 from multiprocessing import Process
 from crypto.aes import Aes
@@ -64,6 +65,10 @@ class MoVi:
                 # It has to talk to the negotiated port
                 self.network_client.update((self.udp_host, udp_port))
 
+                self.network_client_for_receiving_ack = UDPclient(4000)
+
+                self.network_client_for_sending_ack = UDPclient(4003)
+                self.network_client_for_sending_ack.update((host, 4002))
                 # Begin sending data
                 self.sender_single()
                 # self.runner("SERVER")
@@ -85,8 +90,9 @@ class MoVi:
             self.network_client = UDPclient(2000)
             self.network_client.update((host, udp_port))
 
-            self.network_ack_client = UDPclient(4001)
-            self.network_ack_client.update((host, 4000))
+            self.network_client_for_receiving_ack = UDPclient(4002)
+            self.network_client_for_sending_ack = UDPclient(4001)
+            self.network_client_for_sending_ack.update((host, 4000))
             self.signing = Aes(key)
 
             # Begin receiving
@@ -140,25 +146,23 @@ class MoVi:
         while ret:
             ret, frame = self.cam.getFrame()
             if ret:
+                frame = cv2.GaussianBlur(frame, (3,3), 0)
                 ret = display.showFrame(frame)
                 for x in range(0, 450, self.regionSize):
                     for y in range(0, 600, self.regionSize):
-                        
                         while self.queue[self.xy_mapping(x,y)].qsize() > 100:
                             self.queue[self.xy_mapping(x,y)].get()
 
                         if(np.sum(np.absolute(self.last[self.xy_mapping(x,y)]-frame[x:min(x + 
                             self.regionSize, 450), y:min(y + self.regionSize, 600)])) > 
-                                self.regionSize*self.regionSize*320):
+                                self.regionSize*self.regionSize*280):
 
                             self.currentSeqNo[self.xy_mapping(x,y)]+=1
-                            
                             self.queue[self.xy_mapping(x,y)].put(frame[x:min(x + self.regionSize, 
                                 450), y:min(y + self.regionSize, 600)])
                             frame_data = self.img_format.encode(
                                 frame[x:min(x + self.regionSize, 450),
                                       y:min(y + self.regionSize, 600)])
-                            
                             packet_data = self.packetFormat.pack(
                                 x, y, self.currentSeqNo[self.xy_mapping(x,y)],
                                 self.signing.sign(frame_data), frame_data)
@@ -172,10 +176,9 @@ class MoVi:
                             self.logging.log(("Frame not sent ",fn, fs))
 
     def recv_ack(self):
-        self.network_client_ack = UDPclient(4000)
         ret = True
         while 1:
-            data, new_addr = self.network_client_ack.recv()
+            data, new_addr = self.network_client_for_receiving_ack.recv()
             x, y, ack, sign= self.packetFormat.unpack_ack(data)
 
             # self.logging.log("Received ack")
@@ -204,12 +207,12 @@ class MoVi:
                 matrix_img[x:min(x + self.regionSize, 450),
                            y:min(y + self.regionSize, 600)] = (
                                self.img_format.decode(frame_data))
-                
+
                 ret = display.showFrame(matrix_img)
                 packet_data = self.packetFormat.pack_ack(
                                 x, y, ack, sign)
 
-                self.network_ack_client.send(packet_data)
+                self.network_client_for_sending_ack.send(packet_data)
                 # Update the latest address
                 # Should be handled inside recv
                 self.network_client.update(new_addr)
