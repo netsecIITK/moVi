@@ -7,6 +7,7 @@ import sys
 import threading
 import queue
 import cv2
+import time
 
 from multiprocessing import Process
 from crypto.aes import Aes
@@ -45,6 +46,8 @@ class MoVi:
         self.packetFormat = PacketFormat()
         self.logging = Logging()
         self.regionSize = 150
+        self.time_last = 0
+        self.time_waiting = 1
 
         if mode == "SERVER":
             print("Running as server")
@@ -70,8 +73,8 @@ class MoVi:
                 self.network_client_for_sending_ack = UDPclient(4003)
                 self.network_client_for_sending_ack.update((host, 4002))
                 # Begin sending data
-                self.sender_single()
-                # self.runner("SERVER")
+                # self.sender_single()
+                self.runner("SERVER")
 
             # Finally close TCP
             tcpserver.close()
@@ -96,8 +99,8 @@ class MoVi:
             self.signing = Aes(key)
 
             # Begin receiving
-            self.receiver_single()
-            # self.runner("CLIENT")
+            # self.receiver_single()
+            self.runner("CLIENT")
 
     def runner(self, frame_name):
         self.frame_name = frame_name
@@ -148,13 +151,19 @@ class MoVi:
             if ret:
                 frame = cv2.GaussianBlur(frame, (3,3), 0)
                 ret = display.showFrame(frame)
+
+                flag = 0
+                if time.time() - self.time_last > self.time_waiting:
+                    flag = 1
+                    self.time_last = time.time()
+
                 for x in range(0, 450, self.regionSize):
                     for y in range(0, 600, self.regionSize):
                         while self.queue[self.xy_mapping(x,y)].qsize() > 100:
                             self.queue[self.xy_mapping(x,y)].get()
 
-                        if(np.sum(np.absolute(self.last[self.xy_mapping(x,y)]-frame[x:min(x + 
-                            self.regionSize, 450), y:min(y + self.regionSize, 600)])) > 
+                        if(flag or np.sum(np.absolute(self.last[self.xy_mapping(x,y)]-frame[x:min(x +
+                            self.regionSize, 450), y:min(y + self.regionSize, 600)])) >
                                 self.regionSize*self.regionSize*280):
 
                             self.currentSeqNo[self.xy_mapping(x,y)]+=1
@@ -173,7 +182,8 @@ class MoVi:
                             #                   "of length", len(packet_data), self.currentSeqNo[self.xy_mapping(x,y)]))
                         else:
                             fn += 1
-                            self.logging.log(("Frame not sent ",fn, fs))
+                            # self.logging.log(("Frame not sent ",fn, fs))
+                            print(("Frame not sent ",fn, fs))
 
     def recv_ack(self):
         ret = True
