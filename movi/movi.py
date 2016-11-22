@@ -47,7 +47,7 @@ class MoVi:
         self.logging = Logging()
         self.regionSize = 150
         self.time_last = 0
-        self.time_waiting = 1
+        self.time_waiting = 0.4
 
         if mode == "SERVER":
             print("Running as server")
@@ -164,7 +164,7 @@ class MoVi:
 
                         if(flag or np.sum(np.absolute(self.last[self.xy_mapping(x,y)]-frame[x:min(x +
                             self.regionSize, 450), y:min(y + self.regionSize, 600)])) >
-                                self.regionSize*self.regionSize*280):
+                                self.regionSize*self.regionSize*300):
 
                             self.currentSeqNo[self.xy_mapping(x,y)]+=1
                             self.queue[self.xy_mapping(x,y)].put(frame[x:min(x + self.regionSize, 
@@ -176,8 +176,11 @@ class MoVi:
                                 x, y, self.currentSeqNo[self.xy_mapping(x,y)],
                                 self.signing.sign(frame_data), frame_data)
 
-                            self.network_client.send(packet_data)
-                            fs += 1
+                            try:
+                                self.network_client.send(packet_data)
+                                fs += 1
+                            except:
+                                print("network unreachable")
                             # self.logging.log(("Sent frame ", x, " ", y,
                             #                   "of length", len(packet_data), self.currentSeqNo[self.xy_mapping(x,y)]))
                         else:
