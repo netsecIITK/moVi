@@ -226,7 +226,6 @@ class MoVi:
                 self.network_client_ack.send(packet_data)
                 # Update the latest address
                 # Should be handled inside recv
-                self.network_client_ack.update(new_addr)
                 self.network_client.update(new_addr)
 
 # Begin execution
