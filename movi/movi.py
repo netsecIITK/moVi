@@ -68,10 +68,8 @@ class MoVi:
                 # It has to talk to the negotiated port
                 self.network_client.update((self.udp_host, udp_port))
 
-                self.network_client_for_receiving_ack = UDPclient(4000)
-
-                self.network_client_for_sending_ack = UDPclient(4003)
-                self.network_client_for_sending_ack.update((host, 4002))
+                self.network_client_ack = UDPclient(4000)
+                self.network_client_ack.update((host, 4000))
                 # Begin sending data
                 # self.sender_single()
                 self.runner("SERVER")
@@ -93,9 +91,8 @@ class MoVi:
             self.network_client = UDPclient(2000)
             self.network_client.update((host, udp_port))
 
-            self.network_client_for_receiving_ack = UDPclient(4002)
-            self.network_client_for_sending_ack = UDPclient(4001)
-            self.network_client_for_sending_ack.update((host, 4000))
+            self.network_client_ack = UDPclient(4000)
+            self.network_client_ack.update((host, 4000))
             self.signing = Aes(key)
 
             # Begin receiving
@@ -191,7 +188,7 @@ class MoVi:
     def recv_ack(self):
         ret = True
         while 1:
-            data, new_addr = self.network_client_for_receiving_ack.recv()
+            data, new_addr = self.network_client_ack.recv()
             x, y, ack, sign= self.packetFormat.unpack_ack(data)
 
             # self.logging.log("Received ack")
@@ -204,6 +201,7 @@ class MoVi:
 
             self.last[self.xy_mapping(x,y)] = self.queue[self.xy_mapping(x,y)].get()
             self.lastAck[self.xy_mapping(x,y)] = ack
+            self.network_client_ack.update(new_addr)
 
     def recv_state(self):
         matrix_img = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -225,9 +223,10 @@ class MoVi:
                 packet_data = self.packetFormat.pack_ack(
                                 x, y, ack, sign)
 
-                self.network_client_for_sending_ack.send(packet_data)
+                self.network_client_ack.send(packet_data)
                 # Update the latest address
                 # Should be handled inside recv
+                self.network_client_ack.update(new_addr)
                 self.network_client.update(new_addr)
 
 # Begin execution
