@@ -70,7 +70,7 @@ class MoVi:
                 self.network_client.update((self.udp_host, udp_port))
 
                 self.network_client_ack = UDPclient(4000)
-                self.network_client_ack.update((host, 4000))
+                self.network_client_ack.update((self.udp_host, 4000))
                 # Begin sending data
                 # self.sender_single()
                 self.runner("SERVER")
@@ -90,10 +90,10 @@ class MoVi:
 
             # Bind to a UDP port to talk
             self.network_client = UDPclient(2000)
-            self.network_client.update((host, udp_port))
+            self.network_client.update((self.udp_host, udp_port))
 
             self.network_client_ack = UDPclient(4000)
-            self.network_client_ack.update((host, 4000))
+            self.network_client_ack.update((self.udp_host, 4000))
             self.signing = Aes(key)
 
             # Begin receiving
