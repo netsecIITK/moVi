@@ -210,6 +210,7 @@ class MoVi:
 
     def recv_ack(self):
         last = 0
+        print("Receiving ack")
         while 1:
             data, new_addr = self.network_client_ack.recv()
             x, y, ack, sign = self.packetFormat.unpack_ack(data)
@@ -257,7 +258,8 @@ class MoVi:
                 packet_data = self.packetFormat.pack_ack(
                                 x, y, ack, sign)
 
-                self.network_client_ack.send(packet_data)
+                if self.network_client_ack.send(packet_data) < 1:
+                    print("could not send ack")
                 # Update the latest address
                 # Should be handled inside recv
                 self.network_client.update(new_addr)

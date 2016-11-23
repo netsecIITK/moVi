@@ -15,7 +15,7 @@ class UDPclient:
 
     def send(self, data):
         "Sends the provided data to target_address."
-        self.socket.sendto(data, self.target_address)
+        return self.socket.sendto(data, self.target_address)
 
     def recv(self):
         "Receives a datagram (can be valid or invalid)."
