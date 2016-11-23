@@ -44,8 +44,10 @@ class Broker:
                 threading.Thread(target=self.udp1_listener),
                 threading.Thread(target=self.udp2_listener)]
 
-        for rt in list(map(lambda x: x.start(), t)):
-            rt.join()
+        for thread in t:
+            thread.start()
+        for thread in t:
+            thread.join()
 
     # When both have connected
     def exchange_info(self):
@@ -114,3 +116,5 @@ class Broker:
 
                 if self.recv_cl == 3:
                     self.exchange_info()
+
+Broker()
