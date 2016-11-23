@@ -36,7 +36,7 @@ class MoVi:
         repr(byte_array)
         return struct.unpack("<H", byte_array)[0]
 
-    def __init__(self, mode, port, host):
+    def __init__(self, mode, broker_ip):
         if mode != "SERVER" and mode != "CLIENT":
             print("Wrong mode")
             exit(1)
@@ -52,50 +52,57 @@ class MoVi:
         self.lower_thresh = 250
         self.upper_thresh = 330
 
+        broker_client = TCPclient(broker_ip, 8500)
+        self.network_client = UDPclient(3000)
+        self.network_client.update((broker_ip, 3500))
+        network_client.send("ping")
+        self.network_client_ack = UDPclient(4000)
+        self.network_client_ack.update((broker_ip, 4500))
+        network_client_ack.send("ping")
+
+        (other_ip, tcp_port, udp_port1,
+                udp_port2) = broker_client.udp_hole_mapping()
+
+        self.udp_host = other_ip
+        self.key = "abcd"
+
+        broker_client.close()
+
         if mode == "SERVER":
             print("Running as server")
-            tcpserver = TCPserver(port, host)
-            for connection in tcpserver.connection_information(3000):
-                # For every connection to tcpserver
-                print("Got connection from: {}:{}"
-                      .format(connection[0], connection[1][1]))
+            # tcpserver = TCPserver(port, host)
+            # for connection in tcpserver.connection_information(3000):
+            #     # For every connection to tcpserver
+            #     print("Got connection from: {}:{}"
+            #           .format(connection[0], connection[1][1]))
 
-                self.signing = Aes(connection[1][0])
+            self.signing = Aes(key)
 
-                udp_port = connection[1][1]
-                self.udp_host = connection[0]
+            self.network_client.update((self.udp_host, udp_port1))
 
-                # Bind to a socket
-                self.network_client = UDPclient(3000)
-
-                # It has to talk to the negotiated port
-                self.network_client.update((self.udp_host, udp_port))
-
-                self.network_client_ack = UDPclient(4000)
-                self.network_client_ack.update((self.udp_host, 4000))
-                # Begin sending data
-                # self.sender_single()
-                self.runner("SERVER")
+            self.network_client_ack.update((self.udp_host, udp_port2))
+            # Begin sending data
+            # self.sender_single()
+            self.runner("SERVER")
 
             # Finally close TCP
-            tcpserver.close()
+            # tcpserver.close()
 
         else:
             print("Running as client")
             # Talk to target TCP process
-            tcpclient = TCPclient(port, host)
-            self.udp_host = host
+            # tcpclient = TCPclient(tcp_port, self.udp_host)
 
             # Get the secret key and udp_port for video from TCP
-            key, udp_port = tcpclient.get_information(2000)
-            tcpclient.close()
+            # key, udp_port = tcpclient.get_information(2000)
+            # tcpclient.close()
 
             # Bind to a UDP port to talk
-            self.network_client = UDPclient(2000)
-            self.network_client.update((self.udp_host, udp_port))
+            # self.network_client = UDPclient(2000)
+            self.network_client.update((self.udp_host, udp_port1))
 
-            self.network_client_ack = UDPclient(4000)
-            self.network_client_ack.update((self.udp_host, 4000))
+            # self.network_client_ack = UDPclient(4000)
+            self.network_client_ack.update((self.udp_host, udp_port2))
             self.signing = Aes(key)
 
             # Begin receiving

@@ -33,3 +33,10 @@ class TCPclient:
         print("Closing TCP socket to address {}:{}"
               .format(*self.server_address))
         self.socket.close()
+
+    def udp_hole_mapping(self):
+        mappings = self.socket.recv(100).decode()
+        mappings = mappings.split(" ")
+        print("received mapping from broker:"
+                .format(mappings))
+        return (mapping[0], mappings[1], mappings[2], mappings[3])
