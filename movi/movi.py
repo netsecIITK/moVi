@@ -47,7 +47,8 @@ class MoVi:
         self.logging = Logging()
         self.regionSize = 150
         self.time_last = 0
-        self.time_waiting = 0.4
+        self.time_waiting = 0.5
+        self.threshold = 280
 
         if mode == "SERVER":
             print("Running as server")
@@ -128,6 +129,7 @@ class MoVi:
         self.cam = Webcam()
         self.currentSeqNo = [1]*(self.xy_mapping(450,600) + 1)
         self.lastAck = [1]*(self.xy_mapping(450,600) + 1)
+        self.cheating = [1]*(self.xy_mapping(450,600) + 1)
         self.queue = [queue.Queue() for i in range(0,1 + self.xy_mapping(450,600))]
         self.last = [np.zeros((self.regionSize, self.regionSize, 3), dtype=np.uint8) 
                 for i in range(0,1+self.xy_mapping(450,600))]
@@ -142,7 +144,8 @@ class MoVi:
         t1.start()
 
         fn = 0
-        fs = 0
+        self.frames_sent = 1
+        self.ack_recvd = 1
         while ret:
             ret, frame = self.cam.getFrame()
             if ret:
@@ -156,12 +159,19 @@ class MoVi:
 
                 for x in range(0, 450, self.regionSize):
                     for y in range(0, 600, self.regionSize):
+
+                        # self.cheating[self.xy_mapping(x,y)] ^= 1
+                        # if self.cheating[self.xy_mapping(x,y)]:
+                        #     fn += 1
+                        #     continue
+
                         while self.queue[self.xy_mapping(x,y)].qsize() > 100:
                             self.queue[self.xy_mapping(x,y)].get()
+                            self.lastAck[self.xy_mapping(x,y)] += 1
 
                         if(flag or np.sum(np.absolute(self.last[self.xy_mapping(x,y)]-frame[x:min(x +
                             self.regionSize, 450), y:min(y + self.regionSize, 600)])) >
-                                self.regionSize*self.regionSize*300):
+                                self.regionSize *self.regionSize *self.threshold):
 
                             self.currentSeqNo[self.xy_mapping(x,y)]+=1
                             self.queue[self.xy_mapping(x,y)].put(frame[x:min(x + self.regionSize, 
@@ -175,7 +185,7 @@ class MoVi:
 
                             try:
                                 self.network_client.send(packet_data)
-                                fs += 1
+                                self.frames_sent += 1
                             except:
                                 print("network unreachable")
                             # self.logging.log(("Sent frame ", x, " ", y,
@@ -183,10 +193,11 @@ class MoVi:
                         else:
                             fn += 1
                             # self.logging.log(("Frame not sent ",fn, fs))
-                            print(("Frame not sent ",fn, fs))
+                            print(("Frame not sent ",fn, self.frames_sent, self.ack_recvd, self.threshold))
 
     def recv_ack(self):
         ret = True
+        last = 0
         while 1:
             data, new_addr = self.network_client_ack.recv()
             x, y, ack, sign= self.packetFormat.unpack_ack(data)
@@ -199,9 +210,19 @@ class MoVi:
                 self.queue[self.xy_mapping(x,y)].qsize())):
                 self.queue[self.xy_mapping(x,y)].get()
 
+            self.ack_recvd += 1
             self.last[self.xy_mapping(x,y)] = self.queue[self.xy_mapping(x,y)].get()
             self.lastAck[self.xy_mapping(x,y)] = ack
             self.network_client_ack.update(new_addr)
+
+            if time.time() - last > 2:
+                last = time.time()
+                if self.ack_recvd > 0.5*self.frames_sent:
+                    if self.threshold > 250:
+                        self.threshold *= 0.99
+                else:
+                    if self.threshold < 350:
+                        self.threshold *= 1.01
 
     def recv_state(self):
         matrix_img = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -213,8 +234,8 @@ class MoVi:
 
             # Check validity of packet
             if self.signing.check_sign(sign, frame_data):
-                self.logging.log((x, " ", y,
-                                  "Got frame of length ", len(data)))
+                # self.logging.log((x, " ", y,
+                                  # "Got frame of length ", len(data)))
                 matrix_img[x:min(x + self.regionSize, 450),
                            y:min(y + self.regionSize, 600)] = (
                                self.img_format.decode(frame_data))
@@ -227,6 +248,7 @@ class MoVi:
                 # Update the latest address
                 # Should be handled inside recv
                 self.network_client.update(new_addr)
+                # self.network_client_ack.update(new_addr)
 
 # Begin execution
 if len(sys.argv) < 4:
