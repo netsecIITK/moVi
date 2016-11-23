@@ -52,13 +52,13 @@ class MoVi:
         self.lower_thresh = 250
         self.upper_thresh = 330
 
-        broker_client = TCPclient(broker_ip, 8500)
+        broker_client = TCPclient(8500, broker_ip)
         self.network_client = UDPclient(3000)
         self.network_client.update((broker_ip, 3500))
-        network_client.send("ping")
+        self.network_client.send("ping".encode())
         self.network_client_ack = UDPclient(4000)
         self.network_client_ack.update((broker_ip, 4500))
-        network_client_ack.send("ping")
+        self.network_client_ack.send("ping".encode())
 
         (other_ip, tcp_port, udp_port1,
                 udp_port2) = broker_client.udp_hole_mapping()
@@ -273,8 +273,8 @@ class MoVi:
                 # self.network_client_ack.update(new_addr)
 
 # Begin execution
-if len(sys.argv) < 4:
+if len(sys.argv) < 3:
     print("Usage: python movi.py SERVER|CLIENT host port")
     exit(1)
 
-MoVi(sys.argv[1], int(sys.argv[3]), sys.argv[2])
+MoVi(sys.argv[1], sys.argv[2])
