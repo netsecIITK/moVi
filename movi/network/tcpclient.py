@@ -37,6 +37,6 @@ class TCPclient:
     def udp_hole_mapping(self):
         mappings = self.socket.recv(100).decode()
         mappings = mappings.split(" ")
-        print("received mapping from broker:"
+        print("received mapping from broker: {}"
                 .format(mappings))
-        return (mapping[0], mappings[1], mappings[2], mappings[3])
+        return (mappings[0], int(mappings[1]), int(mappings[2]), int(mappings[3]))

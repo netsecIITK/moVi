@@ -76,7 +76,7 @@ class MoVi:
             #     print("Got connection from: {}:{}"
             #           .format(connection[0], connection[1][1]))
 
-            self.signing = Aes(key)
+            self.signing = Aes(self.key)
 
             self.network_client.update((self.udp_host, udp_port1))
 
@@ -103,7 +103,7 @@ class MoVi:
 
             # self.network_client_ack = UDPclient(4000)
             self.network_client_ack.update((self.udp_host, udp_port2))
-            self.signing = Aes(key)
+            self.signing = Aes(self.key)
 
             # Begin receiving
             # self.receiver_single()
