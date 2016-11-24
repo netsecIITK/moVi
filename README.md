@@ -24,11 +24,14 @@ python setup.py develop
 ```
 
 ## Usage
-To run the client and server:
+To run, first start a broker on an IP accessible by both clients
 ```
 cd movi/movi
-python movi.py SERVER <ip-of-server> <port-of-server>
-python movi.py CLIENT <ip-of-server> <port-of-server>
+python broker.py
+
+# No distinction between SERVER and CLIENT
+python movi.py SERVER <ip-of-broker>
+python movi.py CLIENT <ip-of-broker>
 ```
 
 This should open a window each for the client and the server. The client and server difference is nothing but
