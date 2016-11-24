@@ -17,7 +17,6 @@ from image.frame import FrameDisplay
 from image.encodings import JpegEncoding
 from image.logging import Logging
 from network.udpclient import UDPclient
-from network.tcpserver import TCPserver
 from network.tcpclient import TCPclient
 
 
@@ -43,8 +42,8 @@ class MoVi:
 
         # Set this to whichever encoding you want to test
         self.jpeg_quality = 70
-        self.jpeg_lower = 50
-        self.jpeg_upper = 90
+        self.jpeg_lower = 40
+        self.jpeg_upper = 85
         self.img_format = JpegEncoding(self.jpeg_quality)
         self.packetFormat = PacketFormat()
         self.logging = Logging()
@@ -55,6 +54,8 @@ class MoVi:
         self.lower_thresh = 250
         self.upper_thresh = 330
 
+        self.recved_frames = 0
+
         broker_client = TCPclient(8500, broker_ip)
         self.network_client = UDPclient(3000)
         self.network_client.update((broker_ip, 3500))
@@ -63,8 +64,8 @@ class MoVi:
         self.network_client_ack.update((broker_ip, 4500))
         self.network_client_ack.send("ping".encode())
 
-        (other_ip, tcp_port, udp_port1,
-                udp_port2) = broker_client.udp_hole_mapping()
+        (other_ip, tcp_port,
+         udp_port1, udp_port2) = broker_client.udp_hole_mapping()
 
         self.udp_host = other_ip
         self.key = "abcd"
@@ -210,8 +211,8 @@ class MoVi:
                                 print("network unreachable")
 
                             print("Current stats: ", fn, self.frames_sent,
-                                 self.ack_recvd, self.threshold, self.jpeg_quality,
-                                 end="\r")
+                                  self.ack_recvd, self.threshold,
+                                  self.jpeg_quality, end="\r")
                             # self.logging.log(("Sent frame ", x, " ", y,
                             # "of length", len(packet_data),
                             # self.currentSeqNo[self.xy_mapping(x, y)]))
@@ -225,6 +226,7 @@ class MoVi:
         while 1:
             data, new_addr = self.network_client_ack.recv()
             x, y, ack, sign = self.packetFormat.unpack_ack(data)
+            self.recved_frames += 1
 
             # self.logging.log("Received ack")
             if(ack <= self.lastAck[self.xy_mapping(x, y)]):
