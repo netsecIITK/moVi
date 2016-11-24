@@ -42,7 +42,10 @@ class MoVi:
             exit(1)
 
         # Set this to whichever encoding you want to test
-        self.img_format = JpegEncoding(70)
+        self.jpeg_quality = 70
+        self.jpeg_lower = 50
+        self.jpeg_upper = 90
+        self.img_format = JpegEncoding(self.jpeg_quality)
         self.packetFormat = PacketFormat()
         self.logging = Logging()
         self.regionSize = 150
@@ -205,15 +208,16 @@ class MoVi:
                                 self.frames_sent += 1
                             except:
                                 print("network unreachable")
+
+                            print("Current stats: ", fn, self.frames_sent,
+                                 self.ack_recvd, self.threshold, self.jpeg_quality,
+                                 end="\r")
                             # self.logging.log(("Sent frame ", x, " ", y,
                             # "of length", len(packet_data),
                             # self.currentSeqNo[self.xy_mapping(x, y)]))
                         else:
                             fn += 1
                             # self.logging.log(("Frame not sent ",fn, fs))
-                            self.logging.log(
-                                ("Frame not sent ", fn, self.frames_sent,
-                                 self.ack_recvd, self.threshold))
 
     def recv_ack(self):
         last = 0
@@ -241,9 +245,15 @@ class MoVi:
                 if self.ack_recvd > 0.5*self.frames_sent:
                     if self.threshold > self.lower_thresh:
                         self.threshold *= 0.99
+                    if self.jpeg_upper > self.jpeg_quality:
+                        self.jpeg_quality *= 1.01
                 else:
                     if self.threshold < self.upper_thresh:
                         self.threshold *= 1.01
+                    if self.jpeg_lower < self.jpeg_quality:
+                        self.jpeg_quality *= 0.99
+
+                self.img_format.set_quality(self.jpeg_quality)
 
     def recv_state(self):
         matrix_img = np.zeros((480, 640, 3), dtype=np.uint8)

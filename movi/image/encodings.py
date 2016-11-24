@@ -26,3 +26,6 @@ class JpegEncoding:
 
     def decode(self, byte_list):
         return cv2.imdecode(byte_list, cv2.IMREAD_COLOR)
+
+    def set_quality(self, quality):
+        self.quality = quality
