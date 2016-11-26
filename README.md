@@ -1,10 +1,13 @@
-moVi
+MoVi
 ===============================
 
 ## Mobile Video Protocol
+Undergraduate project under Prof. Sandeep Shukla of IIT Kanpur.
 
 * Apache License
-* Current status: Blog post at [acehack.org](http://www.acehack.org/posts/2016-10-08-movi.html)
+* [Final report](http://home.iitk.ac.in/~sakshams/cs395a/report.pdf)
+* [Presentation used at talk](http://home.iitk.ac.in/~sakshams/cs395a/pres.pdf) (24th November, 2016)
+* Initial Blog post at [acehack.org](http://www.acehack.org/posts/2016-10-08-movi.html)
 
 ## Installation
 Requires:
@@ -29,7 +32,7 @@ To run, first start a broker on an IP accessible by both clients
 cd movi/movi
 python broker.py
 
-# No distinction between SERVER and CLIENT
+# No distinction between SERVER and CLIENT for now
 python movi.py SERVER <ip-of-broker>
 python movi.py CLIENT <ip-of-broker>
 ```
