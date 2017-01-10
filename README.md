@@ -9,6 +9,13 @@ Undergraduate project under Prof. Sandeep Shukla of IIT Kanpur.
 * [Presentation used at talk](http://home.iitk.ac.in/~sakshams/cs395a/pres.pdf) (24th November, 2016)
 * Initial Blog post at [acehack.org](http://www.acehack.org/posts/2016-10-08-movi.html)
 
+## Features
+* Video chat for erratic networks.
+* Degrades gracefully for high-packet loss rates
+* Syncing regions of the video, ’best-effort’
+* Stay completely connectionless
+* Recover from lost connections, changed IPs gracefully
+
 ## Installation
 Requires:
 ```
